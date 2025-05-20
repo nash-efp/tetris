@@ -525,46 +525,72 @@ function restartGame() {
     requestAnimationFrame(update);
 }
 
+// ライン消去アニメーション
+function animateLineClear(lines, callback) {
+    let flashCount = 0;
+    const maxFlash = 4;
+    function flash() {
+        lines.forEach(y => {
+            for (let x = 0; x < arena[0].length; x++) {
+                arena[y][x] = flashCount % 2 === 0 ? {value: 1, color: '#fff'} : {value: 1, color: '#ccc'};
+            }
+        });
+        draw();
+        flashCount++;
+        if (flashCount < maxFlash) {
+            setTimeout(flash, 60);
+        } else {
+            callback();
+        }
+    }
+    flash();
+}
+
 // ラインの消去
 function arenaSweep(wasTSpin = false) {
     let rowCount = 0;
+    let linesToClear = [];
     outer: for (let y = arena.length - 1; y >= 0; --y) {
         for (let x = 0; x < arena[y].length; ++x) {
             if (arena[y][x] === 0) {
                 continue outer;
             }
         }
-        const row = arena.splice(y, 1)[0].fill(0);
-        arena.unshift(row);
-        ++y;
-        rowCount++;
+        linesToClear.push(y);
     }
     
-    if (rowCount > 0) {
-        // スコア計算
-        const baseScore = rowCount * 100;
-        const levelBonus = Math.pow(2, rowCount - 1); // 複数行同時消去のボーナス
-        
-        // Tスピンボーナス
-        let tSpinBonus = 1;
-        if (wasTSpin) {
-            tSpinBonus = rowCount === 1 ? 2 : 4; // Tスピンシングル: 2倍、Tスピンダブル/トリプル: 4倍
-        }
-        
-        score += baseScore * levelBonus * level * tSpinBonus;
-        
-        // レベルアップ判定
-        if (score >= level * 1000) {
-            level++;
-            dropInterval = Math.max(100, 1000 - (level - 1) * 100);
-        }
-        
-        // ハイスコア更新
-        if (score > highScore) {
-            highScore = score;
-            localStorage.setItem('tetrisHighScore', highScore);
-        }
-        updateScore();
+    if (linesToClear.length > 0) {
+        animateLineClear(linesToClear, () => {
+            linesToClear.forEach(y => {
+                const row = arena.splice(y, 1)[0].fill(0);
+                arena.unshift(row);
+            });
+            rowCount = linesToClear.length;
+            // スコア計算
+            const baseScore = rowCount * 100;
+            const levelBonus = Math.pow(2, rowCount - 1); // 複数行同時消去のボーナス
+            // Tスピンボーナス
+            let tSpinBonus = 1;
+            if (wasTSpin) {
+                tSpinBonus = rowCount === 1 ? 2 : 4; // Tスピンシングル: 2倍、Tスピンダブル/トリプル: 4倍
+            }
+            score += baseScore * levelBonus * level * tSpinBonus;
+            // レベルアップ判定
+            if (score >= level * 1000) {
+                level++;
+                dropInterval = Math.max(100, 1000 - (level - 1) * 100);
+            }
+            // ハイスコア更新
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('tetrisHighScore', highScore);
+            }
+            updateScore();
+        });
+    } else {
+        // 通常通りスコア計算
+        // ... 既存のスコア計算 ...
+        // ここは何も消えなかった場合の処理
     }
 }
 
