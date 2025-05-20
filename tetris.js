@@ -128,6 +128,11 @@ let lastTime = 0;
 let gameOver = false;
 let nextPiece = null;
 
+// ストック用のキャンバス
+const holdCanvas = document.getElementById('hold-piece');
+const holdContext = holdCanvas.getContext('2d');
+holdContext.scale(30, 30);
+
 // プレイヤーオブジェクト
 const player = {
     pos: {x: 0, y: 0},
@@ -135,8 +140,12 @@ const player = {
     color: null,
     type: null,
     rotation: 0,
-    lastTSpin: false
+    lastTSpin: false,
+    canHold: true  // ホールド可能かどうかのフラグ
 };
+
+// ストックされたブロック
+let holdPiece = null;
 
 // ゲームフィールド
 const arena = createMatrix(10, 20);
@@ -404,6 +413,55 @@ function createPiece() {
     };
 }
 
+// ストックされたブロックの描画
+function drawHoldPiece() {
+    holdContext.fillStyle = '#000';
+    holdContext.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
+    if (holdPiece) {
+        const offset = {
+            x: (holdCanvas.width / 30 - holdPiece.matrix[0].length) / 2,
+            y: (holdCanvas.height / 30 - holdPiece.matrix.length) / 2
+        };
+        drawMatrix(holdPiece.matrix, offset, holdContext, holdPiece.color);
+    }
+}
+
+// ブロックをストックする
+function holdPiece() {
+    if (!player.canHold) return;
+    
+    if (holdPiece === null) {
+        // 初めてホールドする場合
+        holdPiece = {
+            matrix: player.matrix,
+            color: player.color,
+            type: player.type
+        };
+        playerReset();
+    } else {
+        // ストックと現在のブロックを交換
+        const temp = {
+            matrix: holdPiece.matrix,
+            color: holdPiece.color,
+            type: holdPiece.type
+        };
+        holdPiece = {
+            matrix: player.matrix,
+            color: player.color,
+            type: player.type
+        };
+        player.matrix = temp.matrix;
+        player.color = temp.color;
+        player.type = temp.type;
+        player.rotation = 0;
+        player.pos.y = 0;
+        player.pos.x = Math.floor(arena[0].length / 2) - Math.floor(player.matrix[0].length / 2);
+    }
+    
+    player.canHold = false;
+    drawHoldPiece();
+}
+
 // プレイヤーのリセット
 function playerReset() {
     if (nextPiece === null) {
@@ -413,13 +471,13 @@ function playerReset() {
     player.color = nextPiece.color;
     player.type = nextPiece.type;
     player.rotation = 0;
+    player.canHold = true;  // ホールド可能にリセット
     nextPiece = createPiece();
     drawNextPiece();
     
     player.pos.y = 0;
     player.pos.x = Math.floor(arena[0].length / 2) - Math.floor(player.matrix[0].length / 2);
     
-    // ゲームオーバー判定を改善
     if (collide(arena, player)) {
         gameOver = true;
         showGameOver();
@@ -449,16 +507,18 @@ function restartGame() {
     dropCounter = 0;
     lastTime = 0;
     
-    // 次のブロックのリセット
+    // 次のブロックとストックのリセット
     nextPiece = null;
+    holdPiece = null;
     
     // UIの更新
     gameOverElement.style.display = 'none';
     updateScore();
+    drawHoldPiece();
     
     // 新しいブロックの生成
     if (!playerReset()) {
-        return; // リスタート直後にゲームオーバーになる場合は処理を中断
+        return;
     }
     
     // ゲームループの再開
@@ -568,6 +628,9 @@ document.addEventListener('keydown', event => {
             break;
         case 87: // W
             playerRotate(1);
+            break;
+        case 67: // C
+            holdPiece();
             break;
     }
 });
