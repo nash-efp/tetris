@@ -427,7 +427,7 @@ function drawHoldPiece() {
 }
 
 // ブロックをストックする
-function holdPiece() {
+function holdCurrentPiece() {
     if (!player.canHold) return;
     
     if (holdPiece === null) {
